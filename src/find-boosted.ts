@@ -83,20 +83,17 @@ export class FindBoosted<T extends ObjectLiteral> {
     if (entityMetadata.primaryColumns.length > 1) {
       throw new Error('Nested query on relation with more than a primary key are not allowed');
     }
-
-    console.log(currentKey);
-
     const key = relationMetadata.relationType == 'one-to-many' ?
       entityMetadata.findColumnsWithPropertyPath(relationMetadata.inverseSidePropertyPath)[0].propertyPath :
       entityMetadata.primaryColumns[0].propertyName;
 
-    return `(${currentTableName}."${key}" IN (${
+    return `("${currentTableName}"."${key}" IN (${
       this._prepareQueryBuilder({
           where: condition as FindBoostedWhere,
           relations: currentRelations
             .filter(relation => relation.includes(`${currentKey}.`))
             .map(relation => relation.substring(`${currentKey}.`.length)),
-          select: [ key ],
+          select: [ `${entityMetadata.tableName}.${key}` ],
         },
         entityMetadata,
         TX).getSql()
@@ -181,7 +178,7 @@ export class FindBoosted<T extends ObjectLiteral> {
     // Adding relations with left join
     if (options.relations && options.relations?.length > 0) {
       for (let relation of options.relations) {
-        relation = this._rootRepository.metadata.tableName + '.' + relation;
+        relation = repositoryMetadata.tableName + '.' + relation;
 
         const relationSplit: string[] = relation.split('.');
         const currentRelationToAdd: string =
@@ -201,7 +198,7 @@ export class FindBoosted<T extends ObjectLiteral> {
     }
 
     if (options.select) {
-      queryBuilder = queryBuilder.select(options.select.map(x => `"${x}"`));
+      queryBuilder = queryBuilder.select(options.select.map(x => x.split('.').map(y => `"${y}"`).join('.')));
     }
 
     if (options.order) {
