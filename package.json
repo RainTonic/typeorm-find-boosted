@@ -1,6 +1,6 @@
 {
   "name": "typeorm-find-boosted",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A library that improves find functionalities of typeorm by adding nesting queries and data pagination.",
   "main": "index.ts",
   "repository": "https://github.com/RainTonic/typeorm-find-boosted.git",
@@ -24,7 +24,7 @@
     "pretest": "yarn.cmd run compile",
     "posttest": "yarn.cmd run lint"
   },
-  "include": [
-    "build/**"
+  "files": [
+    "build/**/*"
   ]
 }
