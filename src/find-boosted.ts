@@ -121,7 +121,7 @@ export class FindBoosted<T extends ObjectLiteral> {
         return `${currentProperty} IN (${(whereLogicElement.args as any[]).map(x => `'${x}'`).join(', ')})`;
       case FindBoostedFn.BETWEEN:
         const args = whereLogicElement.args as [ number, number ] | [ Date, Date ];
-        return `${currentProperty} BETWEEN ${args[0]} AND ${args[1]}`;
+        return `${currentProperty} BETWEEN '${args[0]}' AND '${args[1]}'`;
       case FindBoostedFn.LIKE:
         return `${currentProperty} LIKE '%${whereLogicElement.args}%'`;
       case FindBoostedFn.ILIKE:
