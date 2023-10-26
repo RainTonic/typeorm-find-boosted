@@ -30,7 +30,7 @@ export class FindBoosted<T extends ObjectLiteral> {
         if (Array.isArray(whereLogic[key])) {
           resultString += ' AND (';
           for (const [ index, condition ] of (whereLogic[key] as FindBoostedCondition[]).entries()) {
-            resultString += this._handleFnLogic(condition, `${entityMetadata.tableName}.${key}`);
+            resultString += this._handleFnLogic(condition, `"${entityMetadata.tableName}"."${key}"`);
 
             if (index !== (whereLogic[key] as FindBoostedCondition[]).length - 1) {
               resultString += ' OR ';
@@ -40,7 +40,7 @@ export class FindBoosted<T extends ObjectLiteral> {
         } else if (typeof whereLogic[key] === 'object') {
           // if element contains _fn
           if (Object.keys(whereLogic[key]).find((k) => k === '_fn')) {
-            resultString += ' AND ' + this._handleFnLogic(whereLogic[key] as FindBoostedCondition, `${entityMetadata.tableName}.${key}`);
+            resultString += ' AND ' + this._handleFnLogic(whereLogic[key] as FindBoostedCondition, `"${entityMetadata.tableName}"."${key}"`);
           } else {
             // In this case is a nested query, so it must be calculated by looking for column metadata
             const relationMetadata = entityMetadata.findRelationWithPropertyPath(key);
@@ -50,7 +50,7 @@ export class FindBoosted<T extends ObjectLiteral> {
             }
             resultString += ' AND ' + this._calculateSubQuery(
               key,
-              `${entityMetadata.tableName}_${key}`,
+              `"${entityMetadata.tableName}_${key}"`,
               whereLogic[key] as FindBoostedWhereCondition,
               relationMetadata,
               currentRelations,
