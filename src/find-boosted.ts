@@ -207,7 +207,7 @@ export class FindBoosted<T extends ObjectLiteral> {
 
     if (options.pagination) {
       const skip: number = options.pagination.pageSize * (options.pagination.page - 1);
-      queryBuilder = queryBuilder.take(options.pagination.pageSize).skip(skip);
+      queryBuilder = queryBuilder.limit(options.pagination.pageSize).offset(skip);
     }
 
     return queryBuilder;
