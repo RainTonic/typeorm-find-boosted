@@ -1,6 +1,6 @@
 {
   "name": "typeorm-find-boosted",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "description": "A library that improves find functionalities of typeorm by adding nesting queries and data pagination.",
   "main": "./index.js",
   "types": "./index.d.ts",
