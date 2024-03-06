@@ -25,12 +25,16 @@ export class FindBoosted<T extends ObjectLiteral> {
                               TX?: EntityManager): string {
     // Check object
     let resultString: string = '1=1';
+    let tableName = entityMetadata.tableName;
+    if(!tableName.includes('"')) {
+      tableName = `"${tableName}"`;
+    }
     for (const key of Object.keys(whereLogic)) {
       if (whereLogic[key] !== undefined && whereLogic[key] !== null) {
         if (Array.isArray(whereLogic[key])) {
           resultString += ' AND (';
           for (const [ index, condition ] of (whereLogic[key] as FindBoostedCondition[]).entries()) {
-            resultString += this._handleFnLogic(condition, `"${entityMetadata.tableName}"."${key}"`);
+            resultString += this._handleFnLogic(condition, `."${key}"`);
 
             if (index !== (whereLogic[key] as FindBoostedCondition[]).length - 1) {
               resultString += ' OR ';
@@ -40,7 +44,8 @@ export class FindBoosted<T extends ObjectLiteral> {
         } else if (typeof whereLogic[key] === 'object') {
           // if element contains _fn
           if (Object.keys(whereLogic[key]).find((k) => k === '_fn')) {
-            resultString += ' AND ' + this._handleFnLogic(whereLogic[key] as FindBoostedCondition, `"${entityMetadata.tableName}"."${key}"`);
+
+            resultString += ' AND ' + this._handleFnLogic(whereLogic[key] as FindBoostedCondition, `${tableName}."${key}"`);
           } else {
             // In this case is a nested query, so it must be calculated by looking for column metadata
             const relationMetadata = entityMetadata.findRelationWithPropertyPath(key);
@@ -59,11 +64,11 @@ export class FindBoosted<T extends ObjectLiteral> {
         } else {
           // handle simple property
           if (typeof whereLogic[key] === 'number') {
-            resultString += ` AND "${entityMetadata.tableName}"."${key}"=${whereLogic[key]}`;
+            resultString += ` AND ${tableName}."${key}"=${whereLogic[key]}`;
           } else if (typeof whereLogic[key] === 'string') {
-            resultString += ` AND "${entityMetadata.tableName}"."${key}"='${whereLogic[key]}'`;
+            resultString += ` AND ${tableName}."${key}"='${whereLogic[key]}'`;
           } else if (typeof whereLogic[key] === 'boolean') {
-            resultString += ` AND "${entityMetadata.tableName}"."${key}"='${whereLogic[key]}'`;
+            resultString += ` AND ${tableName}."${key}"='${whereLogic[key]}'`;
           }
           // Check data
         }
@@ -86,8 +91,11 @@ export class FindBoosted<T extends ObjectLiteral> {
     const key = relationMetadata.relationType == 'one-to-many' ?
       entityMetadata.findColumnsWithPropertyPath(relationMetadata.inverseSidePropertyPath)[0].propertyPath :
       entityMetadata.primaryColumns[0].propertyName;
-
-    return `("${currentTableName}"."${key}" IN (${
+    let tableName = currentTableName;
+    if(!tableName.includes('"')) {
+      tableName = `"${tableName}"`;
+    }
+    return `(${tableName}."${key}" IN (${
       this._prepareQueryBuilder({
           where: condition as FindBoostedWhere,
           relations: currentRelations
