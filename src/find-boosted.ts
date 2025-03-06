@@ -1,11 +1,11 @@
 import { DataSource, EntityManager, EntityMetadata, ObjectLiteral, Repository, SelectQueryBuilder } from 'typeorm';
-import { FindBoostedOptions } from './types/find-boosted-options';
-import { FindBoostedCondition } from './types/find-boosted-condition';
-import { FindBoostedFn } from './enum/find-boosted-fn.enum';
-import { FindBoostedOrder } from './types/find-boosted-order';
-import { FindBoostedWhere, FindBoostedWhereCondition } from './types/find-boosted-where';
-import { FindBoostedResult } from './types/find-boosted-result';
 import { RelationMetadata } from 'typeorm/metadata/RelationMetadata';
+import { FindBoostedFn } from './enum/find-boosted-fn.enum';
+import { FindBoostedCondition } from './types/find-boosted-condition';
+import { FindBoostedOptions } from './types/find-boosted-options';
+import { FindBoostedOrder } from './types/find-boosted-order';
+import { FindBoostedResult } from './types/find-boosted-result';
+import { FindBoostedWhere, FindBoostedWhereCondition } from './types/find-boosted-where';
 
 export class FindBoosted<T extends ObjectLiteral> {
   constructor(private _dataSource: DataSource, private _rootRepository: Repository<T>) {
@@ -96,7 +96,7 @@ export class FindBoosted<T extends ObjectLiteral> {
       tableName = `"${tableName}"`;
     }
     return `(${tableName}."${key}" IN (${
-      this._prepareQueryBuilder({
+      this._prepareGeneralQueryBuilder({
           where: condition as FindBoostedWhere,
           relations: currentRelations
             .filter(relation => relation.includes(`${currentKey}.`))
@@ -151,17 +151,21 @@ export class FindBoosted<T extends ObjectLiteral> {
    * @param TX
    */
   async execute(options: FindBoostedOptions, TX?: EntityManager): Promise<FindBoostedResult<T>> {
-    let queryBuilder: SelectQueryBuilder<T> = this._prepareQueryBuilder(options, this._rootRepository.metadata, TX);
+    let queryBuilderForIds: SelectQueryBuilder<T> = this._prepareQueryBuilderForIds(options, this._rootRepository.metadata, TX);
+
+    const allThePssibleKeys: FindBoostedResult<T> = { data: (await queryBuilderForIds.getRawMany()) };
+    
+    let queryBuilderForEntities: SelectQueryBuilder<T> = this._prepareQueryBuilderForEntities(options, allThePssibleKeys, this._rootRepository.metadata, TX);
 
     if (options.logging) {
       // eslint-disable-next-line no-console
-      console.log('[BOOSTED QUERY] ' + queryBuilder.getSql());
+      console.log('[BOOSTED QUERY] ' + queryBuilderForIds.getSql());
     }
     if (options.pagination) {
       const [
         data,
         totalItems,
-      ] = (await queryBuilder.getManyAndCount()) as [ T[], number ];
+      ] = (await queryBuilderForEntities.getManyAndCount()) as [ T[], number ];
       return {
         data,
         pagination: {
@@ -171,11 +175,11 @@ export class FindBoosted<T extends ObjectLiteral> {
         },
       };
     } else {
-      return { data: (await queryBuilder.getMany()) };
+      return { data: (await queryBuilderForEntities.getMany()) };
     }
   }
 
-  private _prepareQueryBuilder(options: FindBoostedOptions, repositoryMetadata: EntityMetadata, TX?: EntityManager): SelectQueryBuilder<any> {
+  private _prepareBaseQueryBuilder(options: FindBoostedOptions, repositoryMetadata: EntityMetadata, TX?: EntityManager): SelectQueryBuilder<any> {
     let queryBuilder: SelectQueryBuilder<T> = TX
       ? TX.createQueryBuilder(repositoryMetadata.target, repositoryMetadata.tableName)
       : this._dataSource.createQueryBuilder(
@@ -197,6 +201,12 @@ export class FindBoosted<T extends ObjectLiteral> {
       }
     }
 
+    return queryBuilder;
+  }
+
+  private _prepareGeneralQueryBuilder(options: FindBoostedOptions, repositoryMetadata: EntityMetadata, TX?: EntityManager): SelectQueryBuilder<any> {
+    let queryBuilder: SelectQueryBuilder<T> = this._prepareBaseQueryBuilder(options, repositoryMetadata, TX);
+
     if (options.where) {
       queryBuilder = queryBuilder.where(this._buildWhere(options, repositoryMetadata, TX));
     }
@@ -215,10 +225,58 @@ export class FindBoosted<T extends ObjectLiteral> {
 
     if (options.pagination) {
       const skip: number = options.pagination.pageSize * (options.pagination.page - 1);
-      queryBuilder = queryBuilder.limit(options.pagination.pageSize).offset(skip);
+      queryBuilder = queryBuilder.take(options.pagination.pageSize).skip(skip);
     }
 
     return queryBuilder;
+  }
+
+  private _prepareQueryBuilderForIds(options: FindBoostedOptions, repositoryMetadata: EntityMetadata, TX?: EntityManager): SelectQueryBuilder<any> {
+    let queryBuilder: SelectQueryBuilder<T> = this._prepareBaseQueryBuilder(options, repositoryMetadata, TX);
+
+    if (options.where) {
+      queryBuilder = queryBuilder.where(this._buildWhere(options, repositoryMetadata, TX));
+    }
+
+    if (options.fulltextSearch && options.fulltextColumns) {
+      queryBuilder = queryBuilder.andWhere(this._buildWhereFullSearch(options.fulltextSearch, options.fulltextColumns));
+    }
+
+    queryBuilder.select(`"${repositoryMetadata.tableName}"."${repositoryMetadata.primaryColumns[0].propertyName}"`);
+
+    return queryBuilder;
+  }
+
+  private _prepareQueryBuilderForEntities(
+    options: FindBoostedOptions,
+    allThePssibleKeys: FindBoostedResult<T>,
+    repositoryMetadata: EntityMetadata,
+    TX?: EntityManager,
+  ): SelectQueryBuilder<T> {
+    let queryBuilder: SelectQueryBuilder<T> = this._prepareBaseQueryBuilder(options, repositoryMetadata, TX);
+
+    const allIds = allThePssibleKeys.data.map(item => item[repositoryMetadata.primaryColumns[0].propertyName]);
+
+    if (allIds.length == 0) { 
+    // No data
+      return queryBuilder.where('1=0');
+    }
+      queryBuilder.where(`"${repositoryMetadata.tableName}"."${repositoryMetadata.primaryColumns[0].propertyName}" IN (:...allIds)`, { allIds });
+
+    if(options.select) {
+      queryBuilder = queryBuilder.select(options.select.map(x => x.split('.').map(y => `"${y}"`).join('.')));
+    }
+
+    if (options.order) {
+      queryBuilder = queryBuilder.orderBy(this._buildOrderBy(options.order));
+    }
+
+    if (options.pagination) {
+      const skip: number = options.pagination.pageSize * (options.pagination.page - 1);
+      return queryBuilder.take(options.pagination.pageSize).skip(skip);
+    } else {
+      return queryBuilder
+    }
   }
 
   private _buildWhere(options: FindBoostedOptions, rootRepository: EntityMetadata, TX?: EntityManager): string {
