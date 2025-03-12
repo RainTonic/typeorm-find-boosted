@@ -1,5 +1,5 @@
 export enum FindBoostedFn {
-  NOT= 1,
+  NOT = 1,
   IS_NULL,
   EQUAL,
   IN,
