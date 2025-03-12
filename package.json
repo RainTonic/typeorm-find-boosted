@@ -24,9 +24,5 @@
     "pretest": "npm run compile",
     "posttest": "npm run check"
   },
-  "files": [
-    "!src/",
-    "!node_modules/",
-    "!.idea/"
-  ]
+  "files": ["!src/", "!node_modules/", "!.idea/"]
 }
