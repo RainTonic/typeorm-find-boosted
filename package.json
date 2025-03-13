@@ -12,22 +12,17 @@
     "typescript": "^5.1.6"
   },
   "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
     "@types/node": "^20.4.5",
     "gts": "^5.0.0",
     "typescript": "~5.1.6"
   },
   "scripts": {
-    "lint": "gts lint",
-    "clean": "gts clean",
+    "check": "biome format --write .",
     "compile": "tsc",
-    "fix": "gts fix",
-    "prepare": "yarn.cmd run compile",
-    "pretest": "yarn.cmd run compile",
-    "posttest": "yarn.cmd run lint"
+    "prepare": "npm run compile",
+    "pretest": "npm run compile",
+    "posttest": "npm run check"
   },
-  "files": [
-    "!src/",
-    "!node_modules/",
-    "!.idea/"
-  ]
+  "files": ["!src/", "!node_modules/", "!.idea/"]
 }

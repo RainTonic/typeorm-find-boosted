@@ -2,7 +2,6 @@ import { FindBoostedFn } from './enum/find-boosted-fn.enum';
 import { FindBoostedCondition } from './types/find-boosted-condition';
 
 export class FbFn {
-
   static Not(negateCondition: FindBoostedCondition): FindBoostedCondition {
     return { _fn: FindBoostedFn.NOT, args: negateCondition };
   }
@@ -19,7 +18,7 @@ export class FbFn {
     return { _fn: FindBoostedFn.IN, args: values };
   }
 
-  static Between(values: [ number, number ] | [ Date, Date ]): FindBoostedCondition {
+  static Between(values: [number, number] | [Date, Date]): FindBoostedCondition {
     return { _fn: FindBoostedFn.BETWEEN, args: values };
   }
 
