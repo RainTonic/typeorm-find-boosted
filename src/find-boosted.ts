@@ -40,51 +40,53 @@ export class FindBoosted<T extends ObjectLiteral> {
     }
 
     for (const key of Object.keys(whereLogic)) {
-      if (whereLogic[key] !== undefined && whereLogic[key] !== null) {
-        if (Array.isArray(whereLogic[key])) {
-          resultString += ' AND (';
-          for (const [index, condition] of (whereLogic[key] as FindBoostedCondition[]).entries()) {
-            resultString += this._handleFnLogic(condition, `."${key}"`);
+      if (whereLogic[key] === undefined || whereLogic[key] === null) {
+        return `(${resultString})`;
+      }
 
-            if (index !== (whereLogic[key] as FindBoostedCondition[]).length - 1) {
-              resultString += ' OR ';
-            }
-          }
-          resultString += ')';
-        } else if (typeof whereLogic[key] === 'object') {
-          // if element contains _fn
-          if (Object.keys(whereLogic[key]).find((k) => k === '_fn')) {
-            resultString +=
-              ' AND ' + this._handleFnLogic(whereLogic[key] as FindBoostedCondition, `${tableName}."${key}"`);
-          } else {
-            // In this case is a nested query, so it must be calculated by looking for column metadata
-            const relationMetadata = entityMetadata.findRelationWithPropertyPath(key);
+      if (Array.isArray(whereLogic[key])) {
+        resultString += ' AND (';
+        for (const [index, condition] of (whereLogic[key] as FindBoostedCondition[]).entries()) {
+          resultString += this._handleFnLogic(condition, `."${key}"`);
 
-            if (!relationMetadata) {
-              throw new Error(`Column ${key} is not valid for query calculation`);
-            }
-            resultString +=
-              ' AND ' +
-              this._calculateSubQuery(
-                key,
-                `"${entityMetadata.tableName}_${key}"`,
-                whereLogic[key] as FindBoostedWhereCondition,
-                relationMetadata,
-                currentRelations,
-                TX,
-              );
+          if (index !== (whereLogic[key] as FindBoostedCondition[]).length - 1) {
+            resultString += ' OR ';
           }
-        } else {
-          // handle simple property
-          if (typeof whereLogic[key] === 'number') {
-            resultString += ` AND ${tableName}."${key}"=${whereLogic[key]}`;
-          } else if (typeof whereLogic[key] === 'string') {
-            resultString += ` AND ${tableName}."${key}"='${whereLogic[key]}'`;
-          } else if (typeof whereLogic[key] === 'boolean') {
-            resultString += ` AND ${tableName}."${key}"='${whereLogic[key]}'`;
-          }
-          // Check data
         }
+        resultString += ')';
+      } else if (typeof whereLogic[key] === 'object') {
+        // if element contains _fn
+        if (Object.keys(whereLogic[key]).find((k) => k === '_fn')) {
+          resultString +=
+            ' AND ' + this._handleFnLogic(whereLogic[key] as FindBoostedCondition, `${tableName}."${key}"`);
+        } else {
+          // In this case is a nested query, so it must be calculated by looking for column metadata
+          const relationMetadata = entityMetadata.findRelationWithPropertyPath(key);
+
+          if (!relationMetadata) {
+            throw new Error(`Column ${key} is not valid for query calculation`);
+          }
+          resultString +=
+            ' AND ' +
+            this._calculateSubQuery(
+              key,
+              `"${entityMetadata.tableName}_${key}"`,
+              whereLogic[key] as FindBoostedWhereCondition,
+              relationMetadata,
+              currentRelations,
+              TX,
+            );
+        }
+      } else {
+        // handle simple property
+        if (typeof whereLogic[key] === 'number') {
+          resultString += ` AND ${tableName}."${key}"=${whereLogic[key]}`;
+        } else if (typeof whereLogic[key] === 'string') {
+          resultString += ` AND ${tableName}."${key}"='${whereLogic[key]}'`;
+        } else if (typeof whereLogic[key] === 'boolean') {
+          resultString += ` AND ${tableName}."${key}"='${whereLogic[key]}'`;
+        }
+        // Check data
       }
     }
     return `(${resultString})`;
@@ -269,12 +271,7 @@ export class FindBoosted<T extends ObjectLiteral> {
     if (options.fulltextSearch && options.fulltextColumns) {
       queryBuilder = queryBuilder.andWhere(this._buildWhereFullSearch(options.fulltextSearch, options.fulltextColumns));
     }
-    const primaryCol = this._getPrimaryColumn(repositoryMetadata);
-    if (primaryCol) {
-      queryBuilder.select(`"${repositoryMetadata.tableName}"."${this._getPrimaryColumn(repositoryMetadata)}"`);
-    } else {
-      queryBuilder.select('*');
-    }
+    queryBuilder.select(`"${repositoryMetadata.tableName}"."${this._getPrimaryColumn(repositoryMetadata)}"`);
     return queryBuilder;
   }
 
@@ -293,15 +290,13 @@ export class FindBoosted<T extends ObjectLiteral> {
     let queryBuilder: SelectQueryBuilder<T> = this._prepareBaseQueryBuilder(options, repositoryMetadata, TX);
     const primaryCol = this._getPrimaryColumn(repositoryMetadata);
     const allIds = unique(allPrimaryKeys.map((item) => item[primaryCol]));
-    console.log({ allIds });
     if (allIds.length == 0) {
       // No data
       queryBuilder.where('1=0');
       return queryBuilder;
     }
-
     queryBuilder.where(`"${repositoryMetadata.tableName}"."${primaryCol}" IN (:...allIds)`, { allIds });
-    console.log('pre', queryBuilder.getSql());
+
     if (options.select) {
       queryBuilder = queryBuilder.select(
         options.select.map((x) =>

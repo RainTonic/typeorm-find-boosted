@@ -3,8 +3,8 @@ import { Student } from './Student';
 
 @Entity()
 export class Course {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
   @Column()
   name: string;
