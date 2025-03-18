@@ -2,27 +2,37 @@
   "name": "typeorm-find-boosted",
   "version": "1.0.18",
   "description": "A library that improves find functionalities of typeorm by adding nesting queries and data pagination.",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
   "repository": "https://github.com/RainTonic/typeorm-find-boosted.git",
   "author": "Luca Bianco <luca.bianco@raintonic.com>",
   "license": "Apache 2.0",
   "dependencies": {
-    "typeorm": "^0.3.17",
-    "typescript": "^5.1.6"
+    "typeorm": "^0.3.21"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
-    "@types/node": "^20.4.5",
-    "gts": "^5.0.0",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^20.17.24",
+    "jest": "^29.7.0",
+    "reflect-metadata": "^0.2.2",
+    "sqlite3": "^5.1.7",
+    "ts-jest": "^29.2.6",
+    "ts-node-dev": "^2.0.0",
     "typescript": "~5.1.6"
   },
   "scripts": {
     "check": "biome format --write .",
     "compile": "tsc",
+    "build": "tsc",
     "prepare": "npm run compile",
+    "precommit": "npm run check",
     "pretest": "npm run compile",
-    "posttest": "npm run check"
+    "test": "jest --watch"
   },
-  "files": ["!src/", "!node_modules/", "!.idea/"]
+  "files": [
+    "!src/",
+    "!node_modules/",
+    "!.idea/"
+  ]
 }

@@ -1,13 +1,21 @@
 {
   "compilerOptions": {
-    "target": "es2020",
-    "moduleResolution": "nodenext",
-    "declaration": true,
-    "removeComments": true,
+    "target": "ES2016",
     "allowSyntheticDefaultImports": true,
-    "baseUrl": "./src",
+    "declaration": true,
+    "downlevelIteration": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitAny": true,
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "sourceMap": true,
     "outDir": "./dist"
   },
-  "include": ["src/"],
-  "exclude": ["!src/", "dist/"]
+  "outDir": "./dist",
+  "include": ["src", "tests"],
+  "exclude": ["dist", "node_modules"]
 }

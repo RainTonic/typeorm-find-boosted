@@ -1,11 +1,12 @@
 import { DataSource, EntityManager, EntityMetadata, ObjectLiteral, Repository, SelectQueryBuilder } from 'typeorm';
-import { RelationMetadata } from 'typeorm/metadata/RelationMetadata';
 import { FindBoostedFn } from './enum/find-boosted-fn.enum';
 import { FindBoostedCondition } from './types/find-boosted-condition';
 import { FindBoostedOptions } from './types/find-boosted-options';
 import { FindBoostedOrder } from './types/find-boosted-order';
 import { FindBoostedResult } from './types/find-boosted-result';
 import { FindBoostedWhere, FindBoostedWhereCondition } from './types/find-boosted-where';
+import { RelationMetadata } from 'typeorm/metadata/RelationMetadata';
+import { unique } from './utils/utils';
 
 export class FindBoosted<T extends ObjectLiteral> {
   constructor(
@@ -14,7 +15,7 @@ export class FindBoosted<T extends ObjectLiteral> {
   ) {}
 
   private _getPrimaryColumn(metadata: EntityMetadata) {
-    return metadata.primaryColumns.length ? metadata.primaryColumns.at(0).propertyName : '_id';
+    return metadata.primaryColumns.at(0)?.propertyName;
   }
 
   /**
@@ -37,6 +38,7 @@ export class FindBoosted<T extends ObjectLiteral> {
     if (!tableName.includes('"')) {
       tableName = `"${tableName}"`;
     }
+
     for (const key of Object.keys(whereLogic)) {
       if (whereLogic[key] !== undefined && whereLogic[key] !== null) {
         if (Array.isArray(whereLogic[key])) {
@@ -59,7 +61,7 @@ export class FindBoosted<T extends ObjectLiteral> {
             const relationMetadata = entityMetadata.findRelationWithPropertyPath(key);
 
             if (!relationMetadata) {
-              throw new Error('Invalid column for query calculation');
+              throw new Error(`Column ${key} is not valid for query calculation`);
             }
             resultString +=
               ' AND ' +
@@ -97,17 +99,18 @@ export class FindBoosted<T extends ObjectLiteral> {
     TX?: EntityManager,
   ): string {
     const entityMetadata = relationMetadata.inverseEntityMetadata;
-    if (entityMetadata.primaryColumns.length > 1) {
-      throw new Error('Nested query on relation with more than a primary key are not allowed');
+    if (entityMetadata.primaryColumns.length !== 1) {
+      throw new Error(
+        `Nested query on relation are allowed for exactly 1 primary column. table: ${entityMetadata.tableName}`,
+      );
     }
     const key =
       relationMetadata.relationType == 'one-to-many'
         ? entityMetadata.findColumnsWithPropertyPath(relationMetadata.inverseSidePropertyPath)[0].propertyPath
         : this._getPrimaryColumn(entityMetadata);
-    let tableName = currentTableName;
-    if (!tableName.includes('"')) {
-      tableName = `"${tableName}"`;
-    }
+
+    const tableName = currentTableName.includes('"') ? currentTableName : `"${currentTableName}"`;
+
     return `(${tableName}."${key}" IN (${this._prepareGeneralQueryBuilder(
       {
         where: condition as FindBoostedWhere,
@@ -164,40 +167,28 @@ export class FindBoosted<T extends ObjectLiteral> {
    * @param TX
    */
   async execute(options: FindBoostedOptions, TX?: EntityManager): Promise<FindBoostedResult<T>> {
-    let queryBuilderForIds: SelectQueryBuilder<T> = this._prepareQueryBuilderForIds(
-      options,
-      this._rootRepository.metadata,
-      TX,
-    );
-
-    const allThePssibleKeys: FindBoostedResult<T> = {
-      data: await queryBuilderForIds.getRawMany(),
-    };
-
-    let queryBuilderForEntities: SelectQueryBuilder<T> = this._prepareQueryBuilderForEntities(
-      options,
-      allThePssibleKeys,
-      this._rootRepository.metadata,
-      TX,
-    );
+    const primaryCol = this._getPrimaryColumn(this._rootRepository.metadata);
+    let query = primaryCol
+      ? await this._prepareEntitiesQB(options, this._rootRepository.metadata, TX)
+      : this._prepareGeneralQueryBuilder(options, this._rootRepository.metadata, TX);
 
     if (options.logging) {
-      // eslint-disable-next-line no-console
-      console.log('[BOOSTED QUERY] ' + queryBuilderForIds.getSql());
+      console.log('[BOOSTED QUERY] ' + query.getSql());
     }
-    if (options.pagination) {
-      const [data, totalItems] = (await queryBuilderForEntities.getManyAndCount()) as [T[], number];
-      return {
-        data,
-        pagination: {
-          pageSize: options.pagination ? options.pagination.pageSize : -1,
-          page: options.pagination ? options.pagination.page : -1,
-          totalItems,
-        },
-      };
-    } else {
-      return { data: await queryBuilderForEntities.getMany() };
+
+    if (!options.pagination) {
+      return { data: await query.getMany() };
     }
+
+    const [data, totalItems] = (await query.getManyAndCount()) as [T[], number];
+    return {
+      data,
+      pagination: {
+        pageSize: options.pagination ? options.pagination.pageSize : -1,
+        page: options.pagination ? options.pagination.page : -1,
+        totalItems,
+      },
+    };
   }
 
   private _prepareBaseQueryBuilder(
@@ -210,19 +201,19 @@ export class FindBoosted<T extends ObjectLiteral> {
       : this._dataSource.createQueryBuilder(repositoryMetadata.target, repositoryMetadata.tableName);
 
     // Adding relations with left join
-    if (options.relations && options.relations?.length > 0) {
-      for (let relation of options.relations) {
-        relation = repositoryMetadata.tableName + '.' + relation;
-
-        const relationSplit: string[] = relation.split('.');
-        const currentRelationToAdd: string =
-          relationSplit.slice(0, relationSplit.length - 1).join('_') + '.' + relationSplit[relationSplit.length - 1];
-        const sanitizedRelationName: string = relationSplit.join('_');
-
-        queryBuilder = queryBuilder.leftJoinAndSelect(currentRelationToAdd, sanitizedRelationName);
-      }
+    if (!options.relations?.length) {
+      return queryBuilder;
     }
+    for (let relation of options.relations) {
+      relation = `${repositoryMetadata.tableName}.${relation}`;
 
+      const relationSplit: string[] = relation.split('.');
+      const currentRelationToAdd: string =
+        relationSplit.slice(0, relationSplit.length - 1).join('_') + '.' + relationSplit[relationSplit.length - 1];
+      const sanitizedRelationName: string = relationSplit.join('_');
+
+      queryBuilder = queryBuilder.leftJoinAndSelect(currentRelationToAdd, sanitizedRelationName);
+    }
     return queryBuilder;
   }
 
@@ -278,31 +269,39 @@ export class FindBoosted<T extends ObjectLiteral> {
     if (options.fulltextSearch && options.fulltextColumns) {
       queryBuilder = queryBuilder.andWhere(this._buildWhereFullSearch(options.fulltextSearch, options.fulltextColumns));
     }
-
-    queryBuilder.select(`"${repositoryMetadata.tableName}"."${this._getPrimaryColumn(repositoryMetadata)}"`);
-
+    const primaryCol = this._getPrimaryColumn(repositoryMetadata);
+    if (primaryCol) {
+      queryBuilder.select(`"${repositoryMetadata.tableName}"."${this._getPrimaryColumn(repositoryMetadata)}"`);
+    } else {
+      queryBuilder.select('*');
+    }
     return queryBuilder;
+  }
+
+  private async _prepareEntitiesQB(options: FindBoostedOptions, repoMD: EntityMetadata, TX?: EntityManager) {
+    let queryBuilderForIds = this._prepareQueryBuilderForIds(options, this._rootRepository.metadata, TX);
+    const allPrimaryKeys: T[] = await queryBuilderForIds.getRawMany();
+    return this._prepareQueryBuilderForEntities(options, allPrimaryKeys, repoMD, TX);
   }
 
   private _prepareQueryBuilderForEntities(
     options: FindBoostedOptions,
-    allThePssibleKeys: FindBoostedResult<T>,
+    allPrimaryKeys: T[],
     repositoryMetadata: EntityMetadata,
     TX?: EntityManager,
   ): SelectQueryBuilder<T> {
     let queryBuilder: SelectQueryBuilder<T> = this._prepareBaseQueryBuilder(options, repositoryMetadata, TX);
-
-    const allIds = allThePssibleKeys.data.map((item) => item[this._getPrimaryColumn(repositoryMetadata)]);
-
+    const primaryCol = this._getPrimaryColumn(repositoryMetadata);
+    const allIds = unique(allPrimaryKeys.map((item) => item[primaryCol]));
+    console.log({ allIds });
     if (allIds.length == 0) {
       // No data
-      return queryBuilder.where('1=0');
+      queryBuilder.where('1=0');
+      return queryBuilder;
     }
-    queryBuilder.where(
-      `"${repositoryMetadata.tableName}"."${this._getPrimaryColumn(repositoryMetadata)}" IN (:...allIds)`,
-      { allIds },
-    );
 
+    queryBuilder.where(`"${repositoryMetadata.tableName}"."${primaryCol}" IN (:...allIds)`, { allIds });
+    console.log('pre', queryBuilder.getSql());
     if (options.select) {
       queryBuilder = queryBuilder.select(
         options.select.map((x) =>
@@ -321,9 +320,9 @@ export class FindBoosted<T extends ObjectLiteral> {
     if (options.pagination) {
       const skip: number = options.pagination.pageSize * (options.pagination.page - 1);
       return queryBuilder.take(options.pagination.pageSize).skip(skip);
-    } else {
-      return queryBuilder;
     }
+
+    return queryBuilder;
   }
 
   private _buildWhere(options: FindBoostedOptions, rootRepository: EntityMetadata, TX?: EntityManager): string {
