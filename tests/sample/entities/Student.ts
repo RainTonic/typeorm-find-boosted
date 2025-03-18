@@ -3,8 +3,8 @@ import { Course } from './Course';
 
 @Entity()
 export class Student {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
   @Column()
   name: string;
@@ -16,16 +16,6 @@ export class Student {
     () => Course,
     (course) => course.students,
   )
-  @JoinTable({
-    name: 'student_course',
-    joinColumn: {
-      name: 'studentId',
-      referencedColumnName: 'id',
-    },
-    inverseJoinColumn: {
-      name: 'courseId',
-      referencedColumnName: 'id',
-    },
-  }) // Required to define the owning side of the relationship
+  @JoinTable({ name: 'student_course' })
   courses: Course[];
 }

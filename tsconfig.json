@@ -2,7 +2,6 @@
   "compilerOptions": {
     "target": "ES2016",
     "allowSyntheticDefaultImports": true,
-    "declaration": true,
     "downlevelIteration": true,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
@@ -11,7 +10,6 @@
     "noFallthroughCasesInSwitch": true,
     "noImplicitAny": true,
     "noImplicitReturns": true,
-    "noUnusedLocals": true,
     "sourceMap": true,
     "outDir": "./dist"
   },
