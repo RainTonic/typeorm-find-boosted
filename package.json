@@ -30,9 +30,5 @@
     "pretest": "npm run compile",
     "test": "jest --watch"
   },
-  "files": [
-    "!src/",
-    "!node_modules/",
-    "!.idea/"
-  ]
+  "files": ["!src/", "!node_modules/", "!.idea/"]
 }
