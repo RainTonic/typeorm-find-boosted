@@ -62,7 +62,6 @@ export class FindBoosted<T extends ObjectLiteral> {
         } else {
           // In this case is a nested query, so it must be calculated by looking for column metadata
           const relationMetadata = entityMetadata.findRelationWithPropertyPath(key);
-
           if (!relationMetadata) {
             throw new Error(`Column ${key} is not valid for query calculation`);
           }
@@ -165,16 +164,20 @@ export class FindBoosted<T extends ObjectLiteral> {
     }
   }
 
+  async createQuery(options: FindBoostedOptions, TX?: EntityManager) {
+    const primaryCol = this._getPrimaryColumn(this._rootRepository.metadata);
+    return primaryCol
+      ? await this._prepareEntitiesQuery(options, this._rootRepository.metadata, TX)
+      : this._prepareGeneralQueryBuilder(options, this._rootRepository.metadata, TX);
+  }
+
   /**
    * Execute the query with giving params
    * @param options
    * @param TX
    */
   async execute(options: FindBoostedOptions, TX?: EntityManager): Promise<FindBoostedResult<T>> {
-    const primaryCol = this._getPrimaryColumn(this._rootRepository.metadata);
-    let query = primaryCol
-      ? await this._prepareEntitiesQB(options, this._rootRepository.metadata, TX)
-      : this._prepareGeneralQueryBuilder(options, this._rootRepository.metadata, TX);
+    const query = await this.createQuery(options, TX);
 
     if (options.logging) {
       console.log('[BOOSTED QUERY] ' + query.getSql());
@@ -255,7 +258,6 @@ export class FindBoosted<T extends ObjectLiteral> {
       const skip: number = options.pagination.pageSize * (options.pagination.page - 1);
       queryBuilder = queryBuilder.take(options.pagination.pageSize).skip(skip);
     }
-
     return queryBuilder;
   }
 
@@ -277,7 +279,7 @@ export class FindBoosted<T extends ObjectLiteral> {
     return queryBuilder;
   }
 
-  private async _prepareEntitiesQB(options: FindBoostedOptions, repoMD: EntityMetadata, TX?: EntityManager) {
+  async _prepareEntitiesQuery(options: FindBoostedOptions, repoMD: EntityMetadata, TX?: EntityManager) {
     let queryBuilderForIds = this._prepareQueryBuilderForIds(options, this._rootRepository.metadata, TX);
     const allPrimaryKeys: T[] = await queryBuilderForIds.getRawMany();
     return this._prepareQueryBuilderForEntities(options, allPrimaryKeys, repoMD, TX);
@@ -297,7 +299,15 @@ export class FindBoosted<T extends ObjectLiteral> {
       queryBuilder.where('1=0');
       return queryBuilder;
     }
-    queryBuilder.where(`"${repositoryMetadata.tableName}"."${primaryCol}" IN (:...allIds)`, { allIds });
+    queryBuilder = queryBuilder.where(`"${repositoryMetadata.tableName}"."${primaryCol}" IN (:...allIds)`, { allIds });
+    if (options.where) {
+      queryBuilder = queryBuilder.andWhere(this._buildWhere(options, repositoryMetadata));
+    }
+
+    if (options.fulltextSearch && options.fulltextColumns) {
+      const r = this._buildWhereFullSearch(options.fulltextSearch, options.fulltextColumns);
+      queryBuilder = queryBuilder.andWhere(r);
+    }
 
     if (options.select) {
       queryBuilder = queryBuilder.select(
@@ -327,7 +337,6 @@ export class FindBoosted<T extends ObjectLiteral> {
     if (!options.where) {
       return '1=1';
     }
-
     if (Array.isArray(options.where)) {
       // In this case we have a or clause for each object
       options.where.forEach((whereLogic, index) => {
@@ -376,7 +385,7 @@ export class FindBoosted<T extends ObjectLiteral> {
         where += ' OR ';
       }
       const sanitizedFieldName: string = this._sanitizeFieldName(dbCol);
-      where += `(${sanitizedFieldName} ILIKE '%${fullSearch.trim()}%')`;
+      where += `${sanitizedFieldName} LIKE LOWER('%${fullSearch.trim()}%')`;
     }
 
     where += ')';
