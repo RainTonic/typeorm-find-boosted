@@ -279,7 +279,7 @@ export class FindBoosted<T extends ObjectLiteral> {
     return queryBuilder;
   }
 
-  async _prepareEntitiesQuery(options: FindBoostedOptions, repoMD: EntityMetadata, TX?: EntityManager) {
+  private async _prepareEntitiesQuery(options: FindBoostedOptions, repoMD: EntityMetadata, TX?: EntityManager) {
     let queryBuilderForIds = this._prepareQueryBuilderForIds(options, this._rootRepository.metadata, TX);
     const allPrimaryKeys: T[] = await queryBuilderForIds.getRawMany();
     return this._prepareQueryBuilderForEntities(options, allPrimaryKeys, repoMD, TX);
@@ -385,7 +385,7 @@ export class FindBoosted<T extends ObjectLiteral> {
         where += ' OR ';
       }
       const sanitizedFieldName: string = this._sanitizeFieldName(dbCol);
-      where += `${sanitizedFieldName} LIKE LOWER('%${fullSearch.trim()}%')`;
+      where += `(${sanitizedFieldName} LIKE LOWER('%${fullSearch.trim()}%'))`;
     }
 
     where += ')';

@@ -1,4 +1,4 @@
-import { DataSource, Equal, Like, Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { Post } from './sample/entities/Post';
 import { User } from './sample/entities/User';
 import { Student } from './sample/entities/Student';
