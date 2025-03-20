@@ -6,7 +6,8 @@ import { FindBoostedOrder } from './types/find-boosted-order';
 import { FindBoostedResult } from './types/find-boosted-result';
 import { FindBoostedWhere, FindBoostedWhereCondition } from './types/find-boosted-where';
 import { RelationMetadata } from 'typeorm/metadata/RelationMetadata';
-import { unique } from './utils/utils';
+import { isPsql, unique } from './utils/utils';
+import { FbFn } from './fb-fn';
 
 export class FindBoosted<T extends ObjectLiteral> {
   constructor(
@@ -150,7 +151,9 @@ export class FindBoosted<T extends ObjectLiteral> {
       case FindBoostedFn.LIKE:
         return `${currentProperty} LIKE '%${whereLogicElement.args}%'`;
       case FindBoostedFn.ILIKE:
-        return `${currentProperty} ILIKE '%${whereLogicElement.args}%'`;
+        return isPsql(this._rootRepository)
+          ? `${currentProperty} ILIKE '%${whereLogicElement.args}%'`
+          : `${currentProperty} LIKE LOWER('%${whereLogicElement.args}%')`;
       case FindBoostedFn.LOWER:
         return `${currentProperty}<'${whereLogicElement.args}'`;
       case FindBoostedFn.LOWER_EQUAL:
@@ -385,7 +388,7 @@ export class FindBoosted<T extends ObjectLiteral> {
         where += ' OR ';
       }
       const sanitizedFieldName: string = this._sanitizeFieldName(dbCol);
-      where += `(${sanitizedFieldName} LIKE LOWER('%${fullSearch.trim()}%'))`;
+      where += `(${this._handleFnLogic(FbFn.iLike(fullSearch.trim()), sanitizedFieldName)})`;
     }
 
     where += ')';
