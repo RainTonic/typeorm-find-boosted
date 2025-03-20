@@ -1,4 +1,4 @@
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, Equal, Like, Repository } from 'typeorm';
 import { Post } from './sample/entities/Post';
 import { User } from './sample/entities/User';
 import { Student } from './sample/entities/Student';
@@ -59,19 +59,33 @@ describe('sample', () => {
     await studentRepo.save(user);
     await studentRepo.save(user1);
 
-    const withCourses = await studentRepo.find({
-      relations: { courses: true },
-      where: { courses: { name: 'Math' } },
-    });
-    expect(withCourses[0].courses.length).toBe(1);
-
     const fb = new FindBoosted(db, studentRepo);
-    // sqlite doesn't support nested wheres via findboosted
     let r = await fb.execute({
       relations: ['courses'],
-      where: { name: FbFn.Eq(user1.name) },
-      logging: true,
+      where: {
+        name: FbFn.Like(`ob`),
+        courses: { name: FbFn.Eq('Science') },
+      },
     });
-    expect(r.data[0].courses.length).toBe(3);
+    expect(r.data[0].courses[0].name).toBe('Science');
+  });
+
+  test('fb many-to-many fulltext', async () => {
+    const _courses = ['Math', 'Science', 'Arts'].map((name) => courseRepo.create({ name }));
+    const courses = await courseRepo.save(_courses);
+    const user = studentRepo.create({ name: 'John', courses });
+    const user1 = studentRepo.create({ name: 'Bob', courses });
+    await studentRepo.save(user);
+    await studentRepo.save(user1);
+
+    const fb = new FindBoosted(db, studentRepo);
+
+    let r = await fb.execute({
+      fulltextColumns: ['name', 'age'],
+      fulltextSearch: 'Bob',
+      relations: ['courses'],
+    });
+    expect(r.data.length).toBe(1);
+    expect(r.data[0].name).toBe('Bob');
   });
 });
