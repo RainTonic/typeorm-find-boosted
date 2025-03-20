@@ -160,6 +160,8 @@ export class FindBoosted<T extends ObjectLiteral> {
         return `${currentProperty}>'${whereLogicElement.args}'`;
       case FindBoostedFn.GRATER_EQUAL:
         return `${currentProperty}>='${whereLogicElement.args}'`;
+      case FindBoostedFn.RAW:
+        return whereLogicElement.args.toString();
     }
   }
 

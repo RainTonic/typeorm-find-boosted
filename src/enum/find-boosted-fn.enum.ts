@@ -10,4 +10,5 @@ export enum FindBoostedFn {
   LOWER_EQUAL,
   GRATER,
   GRATER_EQUAL,
+  RAW,
 }
