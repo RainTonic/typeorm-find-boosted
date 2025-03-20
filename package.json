@@ -27,7 +27,6 @@
     "build": "tsc",
     "prepare": "npm run compile",
     "precommit": "npm run check",
-    "pretest": "npm run compile",
     "test": "jest --watch"
   },
   "files": ["!src/", "!node_modules/", "!.idea/"]
