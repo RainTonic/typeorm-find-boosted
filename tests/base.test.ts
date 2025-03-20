@@ -55,20 +55,25 @@ describe('sample', () => {
     const _courses = ['Math', 'Science', 'Arts'].map((name) => courseRepo.create({ name }));
     const courses = await courseRepo.save(_courses);
     const user = studentRepo.create({ name: 'John', courses });
-    const user1 = studentRepo.create({ name: 'Bob', courses });
+    const user1 = studentRepo.create({ name: 'Bob', courses: [courses[0]] });
+    const user2 = studentRepo.create({ name: 'Mark', courses });
     await studentRepo.save(user);
     await studentRepo.save(user1);
+    await studentRepo.save(user2);
 
     const fb = new FindBoosted(db, studentRepo);
     let r = await fb.execute({
       relations: ['courses'],
       where: {
-        name: FbFn.Like(`ob`),
         courses: { name: FbFn.Eq('Science') },
       },
     });
-    expect(r.data[0].courses[0].name).toBe('Science');
+
+    expect(r.data[0].courses.find(c => c.name === 'Science')?.name).toBe('Science');
+    expect(r.data.length).toBe(2);
   });
+
+
 
   test('fb many-to-many fulltext', async () => {
     const _courses = ['Math', 'Science', 'Arts'].map((name) => courseRepo.create({ name }));

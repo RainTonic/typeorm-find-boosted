@@ -301,14 +301,6 @@ export class FindBoosted<T extends ObjectLiteral> {
       return queryBuilder;
     }
     queryBuilder = queryBuilder.where(`"${repositoryMetadata.tableName}"."${primaryCol}" IN (:...allIds)`, { allIds });
-    if (options.where) {
-      queryBuilder = queryBuilder.andWhere(this._buildWhere(options, repositoryMetadata));
-    }
-
-    if (options.fulltextSearch && options.fulltextColumns) {
-      const r = this._buildWhereFullSearch(options.fulltextSearch, options.fulltextColumns);
-      queryBuilder = queryBuilder.andWhere(r);
-    }
 
     if (options.select) {
       queryBuilder = queryBuilder.select(
