@@ -1,10 +1,13 @@
 {
   "name": "typeorm-find-boosted",
-  "version": "1.0.18",
+  "version": "1.0.20",
   "description": "A library that improves find functionalities of typeorm by adding nesting queries and data pagination.",
   "main": "./dist/src/index.js",
   "types": "./dist/src/index.d.ts",
-  "repository": "https://github.com/RainTonic/typeorm-find-boosted.git",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RainTonic/typeorm-find-boosted.git"
+  },
   "author": "Luca Bianco <luca.bianco@raintonic.com>",
   "license": "Apache 2.0",
   "dependencies": {
@@ -29,5 +32,9 @@
     "precommit": "npm run check",
     "test": "jest --watch"
   },
-  "files": ["!src/", "!node_modules/", "!.idea/"]
+  "files": [
+    "!src/",
+    "!node_modules/",
+    "!.idea/"
+  ]
 }
