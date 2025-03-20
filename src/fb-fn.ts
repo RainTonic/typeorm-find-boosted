@@ -45,8 +45,4 @@ export class FbFn {
   static Gte(value: string | number): FindBoostedCondition {
     return { _fn: FindBoostedFn.GRATER_EQUAL, args: value };
   }
-
-  static Raw(value: string): FindBoostedCondition {
-    return { _fn: FindBoostedFn.RAW, args: value };
-  }
 }
