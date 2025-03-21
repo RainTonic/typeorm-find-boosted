@@ -1,6 +1,6 @@
 {
   "name": "typeorm-find-boosted",
-  "version": "1.0.22",
+  "version": "1.0.23",
   "description": "A library that improves find functionalities of typeorm by adding nesting queries and data pagination.",
   "main": "./dist/src/index.js",
   "types": "./dist/src/index.d.ts",
@@ -10,10 +10,8 @@
   },
   "author": "Luca Bianco <luca.bianco@raintonic.com>",
   "license": "Apache 2.0",
-  "dependencies": {
-    "typeorm": "^0.3.21"
-  },
   "devDependencies": {
+    "typeorm": "^0.3.21",
     "@biomejs/biome": "^1.9.4",
     "@types/jest": "^29.5.14",
     "@types/node": "^20.17.24",
@@ -32,7 +30,5 @@
     "precommit": "npm run check",
     "test": "jest --watch"
   },
-  "files": [
-    "dist"
-  ]
+  "files": ["dist/src", "dist/types"]
 }
