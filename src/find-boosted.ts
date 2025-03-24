@@ -8,12 +8,18 @@ import { FindBoostedWhere, FindBoostedWhereCondition } from './types/find-booste
 import { RelationMetadata } from 'typeorm/metadata/RelationMetadata';
 import { isPsql, unique } from './utils/utils';
 import { FbFn } from './fb-fn';
+import {FBLogger} from "../logger";
 
 export class FindBoosted<T extends ObjectLiteral> {
+  logger = new FBLogger();
   constructor(
     private _dataSource: DataSource,
     private _rootRepository: Repository<T>,
   ) {}
+
+  enableLogging(level: number) {
+    this.logger.setLogLevel(level);
+  }
 
   private _getPrimaryColumn(metadata: EntityMetadata) {
     return metadata.primaryColumns.at(0)?.propertyName;
@@ -167,7 +173,8 @@ export class FindBoosted<T extends ObjectLiteral> {
 
   async createQuery(options: FindBoostedOptions, TX?: EntityManager) {
     const primaryCol = this._getPrimaryColumn(this._rootRepository.metadata);
-    return primaryCol
+    this.logger.debug(`Selecting type of query with params [pc: ${primaryCol} pe: ${!!options.pagination}]`);
+    return primaryCol && options.pagination
       ? await this._prepareEntitiesQuery(options, this._rootRepository.metadata, TX)
       : this._prepareGeneralQueryBuilder(options, this._rootRepository.metadata, TX);
   }
@@ -178,6 +185,14 @@ export class FindBoosted<T extends ObjectLiteral> {
    * @param TX
    */
   async execute(options: FindBoostedOptions, TX?: EntityManager): Promise<FindBoostedResult<T>> {
+    try {
+
+    } catch (e) {
+      this.logger.error('Got error: ' + JSON.stringify(e));
+      throw e;
+    }
+    this.logger.log('Required execute');
+    this.logger.debug('Options required: ' + JSON.stringify(options));
     const query = await this.createQuery(options, TX);
 
     if (options.logging) {
@@ -185,9 +200,11 @@ export class FindBoosted<T extends ObjectLiteral> {
     }
 
     if (!options.pagination) {
+      this.logger.debug('No pagination required');
       return { data: await query.getMany() };
     }
 
+    this.logger.debug('Calculating query with pagination');
     const [data, totalItems] = (await query.getManyAndCount()) as [T[], number];
     return {
       data,
@@ -230,17 +247,21 @@ export class FindBoosted<T extends ObjectLiteral> {
     repositoryMetadata: EntityMetadata,
     TX?: EntityManager,
   ): SelectQueryBuilder<any> {
+    this.logger.log('Using general query');
     let queryBuilder: SelectQueryBuilder<T> = this._prepareBaseQueryBuilder(options, repositoryMetadata, TX);
 
-    if (options.where) {
+    if (options.where && options.where.length) {
+      this.logger.debug('Applying where on general query');
       queryBuilder = queryBuilder.where(this._buildWhere(options, repositoryMetadata, TX));
     }
 
     if (options.fulltextSearch && options.fulltextColumns) {
+      this.logger.debug('Applying fulltext on general query');
       queryBuilder = queryBuilder.andWhere(this._buildWhereFullSearch(options.fulltextSearch, options.fulltextColumns));
     }
 
     if (options.select) {
+      this.logger.debug('Selecting fields general query');
       queryBuilder = queryBuilder.select(
         options.select.map((x) =>
           x
@@ -252,13 +273,16 @@ export class FindBoosted<T extends ObjectLiteral> {
     }
 
     if (options.order) {
+      this.logger.debug('Set order by on general query');
       queryBuilder = queryBuilder.orderBy(this._buildOrderBy(options.order));
     }
 
     if (options.pagination) {
+      this.logger.debug('Applying pagination on general query');
       const skip: number = options.pagination.pageSize * (options.pagination.page - 1);
       queryBuilder = queryBuilder.take(options.pagination.pageSize).skip(skip);
     }
+    this.logger.debug('Got general query: ' + queryBuilder.getSql());
     return queryBuilder;
   }
 
@@ -269,20 +293,25 @@ export class FindBoosted<T extends ObjectLiteral> {
   ): SelectQueryBuilder<any> {
     let queryBuilder: SelectQueryBuilder<T> = this._prepareBaseQueryBuilder(options, repositoryMetadata, TX);
 
-    if (options.where) {
+    if (options.where && options.where.length) {
+      this.logger.debug('Applying where on ID query');
       queryBuilder = queryBuilder.where(this._buildWhere(options, repositoryMetadata, TX));
     }
 
     if (options.fulltextSearch && options.fulltextColumns) {
+      this.logger.debug('Using fulltext on ID query');
       queryBuilder = queryBuilder.andWhere(this._buildWhereFullSearch(options.fulltextSearch, options.fulltextColumns));
     }
     queryBuilder.select(`"${repositoryMetadata.tableName}"."${this._getPrimaryColumn(repositoryMetadata)}"`);
+    this.logger.debug('Got ID query: ' + queryBuilder.getSql());
     return queryBuilder;
   }
 
   private async _prepareEntitiesQuery(options: FindBoostedOptions, repoMD: EntityMetadata, TX?: EntityManager) {
+    this.logger.log('Preparing query with nested ID selection');
     let queryBuilderForIds = this._prepareQueryBuilderForIds(options, this._rootRepository.metadata, TX);
     const allPrimaryKeys: T[] = await queryBuilderForIds.getRawMany();
+    this.logger.debug(`Got list of ${allPrimaryKeys.length} primary keys`);
     return this._prepareQueryBuilderForEntities(options, allPrimaryKeys, repoMD, TX);
   }
 
@@ -292,10 +321,12 @@ export class FindBoosted<T extends ObjectLiteral> {
     repositoryMetadata: EntityMetadata,
     TX?: EntityManager,
   ): SelectQueryBuilder<T> {
+    this.logger.log('Using wrapper query');
     let queryBuilder: SelectQueryBuilder<T> = this._prepareBaseQueryBuilder(options, repositoryMetadata, TX);
     const primaryCol = this._getPrimaryColumn(repositoryMetadata);
     const allIds = unique(allPrimaryKeys.map((item) => item[primaryCol]));
     if (allIds.length == 0) {
+      this.logger.debug('No data found on ID query. Invalidating the qb to get 0 results');
       // No data
       queryBuilder.where('1=0');
       return queryBuilder;
@@ -303,6 +334,7 @@ export class FindBoosted<T extends ObjectLiteral> {
     queryBuilder = queryBuilder.where(`"${repositoryMetadata.tableName}"."${primaryCol}" IN (:...allIds)`, { allIds });
 
     if (options.select) {
+      this.logger.debug('Selecting fields');
       queryBuilder = queryBuilder.select(
         options.select.map((x) =>
           x
@@ -314,20 +346,22 @@ export class FindBoosted<T extends ObjectLiteral> {
     }
 
     if (options.order) {
+      this.logger.debug('Applying order by');
       queryBuilder = queryBuilder.orderBy(this._buildOrderBy(options.order));
     }
 
     if (options.pagination) {
+      this.logger.debug('Builging pagination');
       const skip: number = options.pagination.pageSize * (options.pagination.page - 1);
       return queryBuilder.take(options.pagination.pageSize).skip(skip);
     }
-
+    this.logger.debug('Got wrapper query: ' + queryBuilder.getSql());
     return queryBuilder;
   }
 
   private _buildWhere(options: FindBoostedOptions, rootRepository: EntityMetadata, TX?: EntityManager): string {
     let whereClauseString: string = '';
-    if (!options.where) {
+    if (!options.where || !Object.keys(options.where).length) {
       return '1=1';
     }
     if (Array.isArray(options.where)) {
