@@ -12,6 +12,7 @@ export interface FindBoostedOptions {
   order?: FindBoostedOrder;
   pagination?: FindBoostedPagination;
 
+  // @deprecated
   logging?: boolean;
 
   fulltextColumns?: string[];
