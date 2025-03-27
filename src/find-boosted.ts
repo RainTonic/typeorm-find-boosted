@@ -331,7 +331,7 @@ export class FindBoosted<T extends ObjectLiteral> {
       queryBuilder.where('1=0');
       return queryBuilder;
     }
-    queryBuilder = queryBuilder.where(`"${repositoryMetadata.tableName}"."${primaryCol}" IN (:...allIds)`, { allIds });
+    queryBuilder = queryBuilder.where(`"${repositoryMetadata.tableName}"."${primaryCol}" IN (:allIds)`, { allIds : allIds.map(id => `'${id}'`).join(',') });
 
     if (options.select) {
       this.logger.debug('Selecting fields');
