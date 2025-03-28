@@ -8,7 +8,7 @@ import { FindBoostedWhere, FindBoostedWhereCondition } from './types/find-booste
 import { RelationMetadata } from 'typeorm/metadata/RelationMetadata';
 import { isPsql, unique } from './utils/utils';
 import { FbFn } from './fb-fn';
-import {FBLogger} from "../logger";
+import {FBLogger} from "./utils/logger";
 
 export class FindBoosted<T extends ObjectLiteral> {
   logger = new FBLogger();
@@ -249,8 +249,8 @@ export class FindBoosted<T extends ObjectLiteral> {
   ): SelectQueryBuilder<any> {
     this.logger.log('Using general query');
     let queryBuilder: SelectQueryBuilder<T> = this._prepareBaseQueryBuilder(options, repositoryMetadata, TX);
-
-    if (options.where && options.where.length) {
+    Object.keys(options.where).length
+    if (options.where && Object.keys(options.where).length) {
       this.logger.debug('Applying where on general query');
       queryBuilder = queryBuilder.where(this._buildWhere(options, repositoryMetadata, TX));
     }
@@ -293,7 +293,7 @@ export class FindBoosted<T extends ObjectLiteral> {
   ): SelectQueryBuilder<any> {
     let queryBuilder: SelectQueryBuilder<T> = this._prepareBaseQueryBuilder(options, repositoryMetadata, TX);
 
-    if (options.where && options.where.length) {
+    if (options.where && Object.keys(options.where).length) {
       this.logger.debug('Applying where on ID query');
       queryBuilder = queryBuilder.where(this._buildWhere(options, repositoryMetadata, TX));
     }
@@ -331,7 +331,7 @@ export class FindBoosted<T extends ObjectLiteral> {
       queryBuilder.where('1=0');
       return queryBuilder;
     }
-    queryBuilder = queryBuilder.where(`"${repositoryMetadata.tableName}"."${primaryCol}" IN (:allIds)`, { allIds : allIds.map(id => `'${id}'`).join(',') });
+    queryBuilder = queryBuilder.where(`"${repositoryMetadata.tableName}"."${primaryCol}" IN (${allIds.map(id => `'${id}'`).join(',')})`);
 
     if (options.select) {
       this.logger.debug('Selecting fields');

@@ -1,4 +1,4 @@
-import {FBLOG_LEVEL} from "./src/enum/fblog-level.enum";
+import {FBLOG_LEVEL} from "../enum/fblog-level.enum";
 
 export class FBLogger {
   name = '[FB]';
