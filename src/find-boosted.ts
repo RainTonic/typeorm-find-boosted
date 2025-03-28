@@ -249,7 +249,6 @@ export class FindBoosted<T extends ObjectLiteral> {
   ): SelectQueryBuilder<any> {
     this.logger.log('Using general query');
     let queryBuilder: SelectQueryBuilder<T> = this._prepareBaseQueryBuilder(options, repositoryMetadata, TX);
-    Object.keys(options.where).length
     if (options.where && Object.keys(options.where).length) {
       this.logger.debug('Applying where on general query');
       queryBuilder = queryBuilder.where(this._buildWhere(options, repositoryMetadata, TX));
@@ -361,7 +360,7 @@ export class FindBoosted<T extends ObjectLiteral> {
 
   private _buildWhere(options: FindBoostedOptions, rootRepository: EntityMetadata, TX?: EntityManager): string {
     let whereClauseString: string = '';
-    if (!options.where || !Object.keys(options.where).length) {
+    if (!options.where || !Object.keys(options.where || {}).length) {
       return '1=1';
     }
     if (Array.isArray(options.where)) {
