@@ -28,7 +28,8 @@
     "build": "tsc",
     "prepare": "npm run compile",
     "precommit": "npm run check",
-    "test": "jest --watch"
+    "test": "jest",
+    "test:w": "jest --watch"
   },
   "files": ["dist/src", "dist/types"]
 }
