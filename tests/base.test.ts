@@ -70,7 +70,10 @@ describe('sample', () => {
       },
     });
 
-    // expect(r.data[0].courses.find((c) => c.name === 'Science')?.name).toBe('Science');
+    expect(r.data[0].courses.find((c) => c.name === 'Science')?.name).toBe('Science');
+
+    // IMPORTANT
+    expect(r.data[0].courses.length).toBe(3);
 
     expect(r.data.length).toBe(2);
   });
