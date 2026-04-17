@@ -360,17 +360,19 @@ export class FindBoosted<T extends ObjectLiteral> {
 
   private _buildWhere(options: FindBoostedOptions, rootRepository: EntityMetadata, TX?: EntityManager): string {
     let whereClauseString: string = '';
-    if (!options.where || !Object.keys(options.where || {}).length) {
+    if (!options.where || !Object.keys(options.where || {}).length || (Array.isArray(options.where) && options. where.length === 0)) {
       return '1=1';
     }
     if (Array.isArray(options.where)) {
       // In this case we have a or clause for each object
+      whereClauseString += '('; 
       options.where.forEach((whereLogic, index) => {
         whereClauseString += this._buildWhereAndLogic(whereLogic, rootRepository, options.relations || [], TX);
         if (index !== (options.where as FindBoostedWhere[]).length - 1) {
           whereClauseString += ' OR ';
         }
       });
+      whereClauseString += ')'; 
     } else {
       // Only a where clause with each element in AND logic operator
       whereClauseString += this._buildWhereAndLogic(options.where, rootRepository, options.relations || [], TX);
